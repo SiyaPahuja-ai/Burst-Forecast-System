@@ -124,16 +124,16 @@ flowchart TD
 FORTRESS is validated on three prototype geographic domains:
 
 1. **Eastern Uttar Pradesh (`EASTERN_UP_RECT`)**:
-   - Coordinates: $24.5^\circ\text{N} - 28.5^\circ\text{N},\ 80.0^\circ\text{E} - 84.5^\circ\text{E}$
-   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points)
+   - Coordinates: $24.50^\circ\text{N} - 28.50^\circ\text{N},\ 80.00^\circ\text{E} - 84.50^\circ\text{E}$
+   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points; $17 \times 19$ grid)
    - Synoptic Focus: Indo-Gangetic monsoon trough, convective storms, flash flooding.
 2. **Central India (`CENTRAL_INDIA_RECT`)**:
-   - Coordinates: $20.0^\circ\text{N} - 24.5^\circ\text{N},\ 76.0^\circ\text{E} - 82.0^\circ\text{E}$
-   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points)
+   - Coordinates: $19.00^\circ\text{N} - 23.00^\circ\text{N},\ 76.00^\circ\text{E} - 80.50^\circ\text{E}$
+   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points; $17 \times 19$ grid)
    - Synoptic Focus: Rainfed agriculture, Narmada/Tapti river basin hydrology, monsoon depressions.
 3. **Northwest India (`NORTHWEST_INDIA_RECT`)**:
-   - Coordinates: $28.0^\circ\text{N} - 32.5^\circ\text{N},\ 74.0^\circ\text{E} - 80.0^\circ\text{E}$
-   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points)
+   - Coordinates: $26.00^\circ\text{N} - 30.00^\circ\text{N},\ 73.00^\circ\text{E} - 77.50^\circ\text{E}$
+   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points; $17 \times 19$ grid)
    - Synoptic Focus: Western Disturbances, canal irrigation networks, semi-arid wind generation.
 
 > **Scope Clarification**: The current prototype dataset covers these three defined regions across 36 selected initialization dates per region (2017–2019). It does not claim continuous pan-India coverage.
@@ -174,11 +174,12 @@ Forecast states are mapped onto six normalized dimensions ($0–100$ scale):
 ## 9. Verified Evaluation Metrics & Reproduction
 
 Evaluated across strictly partitioned chronological splits:
-* **Train Set**: 2017 + Jan–Jun 2018 (197,676 rows)
-* **Validation Set**: Jul–Dec 2018 (34,884 rows)
-* **Held-out Test Set**: 2019 Unseen Initialization Dates (116,280 rows across all 3 regions)
+* **Train Set**: 2017 to June 1, 2018 (54 initialization dates, 174,420 rows)
+* **Validation Set**: July 1 to December 1, 2018 (18 initialization dates, 58,140 rows)
+* **Held-out Test Set**: 2019 Unseen Initialization Dates (36 initialization dates, 116,280 rows across all 3 regions)
+* **Total Multi-Region Corpus**: 348,840 rows ($174,420 + 58,140 + 116,280 = 348,840$)
 
-### Held-Out Test Set Results (2019)
+### Held-Out Test Set Results (2019 Combined)
 
 | Evaluation Metric | Raw Uncalibrated Model | Calibrated Model (Isotonic) | Verified Benchmark |
 | :--- | :---: | :---: | :---: |
@@ -187,6 +188,23 @@ Evaluated across strictly partitioned chronological splits:
 | **Brier Score** | 0.1173 | **0.1178** | $\le 0.15$ |
 | **Fixed Threshold Recall (0.50)** | 0.5310 | **0.6077** | $+7.67\%$ gain |
 | **Fixed Threshold F1 Score (0.50)** | 0.5893 | **0.6182** | $+2.89\%$ gain |
+
+### Regional Breakdown on Held-Out Test Set (2019)
+
+| Region ID | Domain Name | Test Rows ($N$) | Bust Rate (%) | ROC-AUC | PR-AUC | Brier Score | Mean Trust Horizon |
+| :--- | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
+| `EASTERN_UP_RECT` | Eastern UP Prototype | 38,760 | 24.16% | 0.8021 | 0.5799 | 0.1415 | 3.75 days |
+| `NORTHWEST_INDIA_RECT` | Northwest India Prototype | 38,760 | 11.31% | 0.8792 | 0.5910 | 0.0658 | 5.82 days |
+| `CENTRAL_INDIA_RECT` | Central India Prototype | 38,760 | 30.67% | 0.8493 | 0.7068 | 0.1460 | 4.38 days |
+| **Combined Held-Out** | **All 3 Regions** | **116,280** | **22.04%** | **0.8561** | **0.6408** | **0.1178** | **4.65 days** |
+
+### Cross-Region Generalization (Leave-One-Region-Out)
+
+| Held-Out Evaluation Domain | Generalization ROC-AUC | PR-AUC |
+| :--- | :---: | :---: |
+| `CENTRAL_INDIA_RECT` | **0.8502** | 0.6917 |
+| `NORTHWEST_INDIA_RECT` | **0.8491** | 0.5807 |
+| `EASTERN_UP_RECT` | **0.7877** | 0.5661 |
 
 *Scientific Note on Calibration*: Isotonic calibration maps predicted scores into empirical probability space for interpretability; it does not claim to arbitrarily lower raw Brier score over uncalibrated probabilities.
 
