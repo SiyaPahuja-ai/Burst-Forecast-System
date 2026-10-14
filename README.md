@@ -1,163 +1,431 @@
-# FORTRESS
-### Forecast Reliability Stress-Testing & Self-Audit System
+# FORTRESS — Forecast Reliability Stress-Testing & Self-Audit System
 
-> FORTRESS does not replace the weather forecast — it estimates where, when and how confidently that forecast can be trusted.
+> **Operational Distinction**: FORTRESS does not replace operational numerical weather prediction (NWP) or official agency warnings. It estimates **where, when, and how confidently** an existing weather forecast can be trusted for risk-sensitive planning.
 
----
-
-## About
-
-Medium-range numerical weather prediction (NWP) models frequently provide valuable guidance, but they can occasionally suffer from large, unexpected prediction failures—termed **forecast busts**—especially during rapidly evolving synoptic events like active monsoon surges, heavy convective precipitation, and sudden cyclonic depressions.
-
-FORTRESS introduces an AI-driven forecast reliability and self-audit intelligence layer on top of operational multi-member ensemble forecasts. Rather than attempting to predict the weather anew, FORTRESS evaluates the trustworthiness of existing forecasts and answers five critical operational questions:
-
-1. **Where** is the forecast at risk of becoming unreliable?
-2. **At which lead time** (D1–D10) does reliability start degrading?
-3. **What is the estimated bust probability** ($P_{\text{bust}}$)?
-4. **Why** is confidence low (underlying physical sensitivities and ensemble spread)?
-5. **Does independent evidence** support or conflict with the AI signal?
+[![Python](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.104+-009688.svg)](https://fastapi.tiangolo.com/)
+[![React](https://img.shields.io/badge/React-18.3-61DAFB.svg)](https://react.dev/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.7-3178C6.svg)](https://www.typescriptlang.org/)
+[![Vite](https://img.shields.io/badge/Vite-5.4-646CFF.svg)](https://vitejs.dev/)
+[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
 ---
 
-## Key Features
+## 1. Project Title & Overview
 
-* **Forecast Bust Probability — $P(\text{Bust})$**: Calibrated probability estimating the risk of extreme error exceeding the 95th historical percentile.
-* **Forecast Confidence Map**: Spatial GIS visualization categorizing reliability into operational trust tiers across lead times.
-* **Error-Prone Area Detection**: Automated identification of localized geographic pockets with heightened error vulnerability.
-* **D1–D10 Reliability Analysis**: Continuous lead-time trajectory tracking to evaluate forecast skill degradation from Day 1 to Day 10.
-* **Reliability Bands**: Categorization into standardized operational risk bands (`GREEN` — Reliable, `YELLOW` — Caution, `RED` — Lower Trust / Review).
-* **Prototype Diagnostic Trust Index**: Composite metric ($0–100$) reflecting agreement across AI, stress testing, and historical analogues.
-* **Trust Horizon**: The latest lead day through which the forecast sequence remains robust and actionable.
-* **Breaking Point**: The lead time beyond which severe forecast degradation persists.
-* **Stress Lab**: Synthetic perturbation laboratory evaluating forecast vulnerability to atmospheric shifts.
-* **Forecast Failure Distance (FFD)**: Proposed diagnostic metric quantifying how small a physical perturbation is required to induce forecast failure.
-* **6D Failure Fingerprint**: Multi-dimensional diagnostic profile mapping failure sensitivities across physical and ensemble dimensions.
-* **Historical Analogues**: Non-parametric k-nearest neighbors matching against verified historical reforecast cases.
-* **Failure DNA**: Cosine similarity matching against historical forecast busts to detect recurring failure modes.
-* **GEFS Ensemble Disagreement**: Quantified member spread and inter-member variance across the forecast ensemble.
-* **OOD / Novelty Detection**: Unsupervised anomaly detection isolating unusual atmospheric patterns outside the training distribution.
-* **Independent Evidence**: Four decoupled validation streams that operate independently of the primary AI prediction.
-* **Self-Audit System**: Automated consensus engine synthesizing AI risk against independent evidence to detect potential blind spots.
-* **Sequence Analysis**: Markov state transition probability modeling sequence evolution across lead times.
-* **Reliability Passport**: Standardized, printable, and downloadable diagnostic audit card for weather-sensitive operations.
-* **Decision Support**: Operational advisory layers providing human-in-the-loop guidance for infrastructure and emergency planning.
+**FORTRESS** (*Forecast Reliability Stress-Testing & Self-Audit System*) is an AI-driven meteorological intelligence and audit layer developed to evaluate the spatial, temporal, and physical trustworthiness of medium-range ensemble weather forecasts.
+
+Medium-range weather forecasts guide multi-million-rupee decisions across dam reservoirs, agricultural harvesting, disaster response pre-positioning, and electrical grid management. However, numerical forecasts occasionally suffer from **severe forecast busts**—catastrophic prediction errors driven by convective instability, non-linear atmospheric chaos, or rapid synoptic evolution. 
+
+FORTRESS audits operational ensemble forecasts (NOAA GEFSv12) against historical atmospheric reanalysis (ERA5), synthesizing machine learning predictions with independent physical evidence to deliver transparent reliability diagnostics.
 
 ---
 
-## Supported Prototype Regions
+## 2. Problem Statement & Motivation
 
-The current prototype provides validated reliability data exclusively for three meteorological domains:
-
-1. **Eastern Uttar Pradesh** (Pilot Domain: $24.5^\circ\text{N} - 28.5^\circ\text{N},\ 80.0^\circ\text{E} - 84.5^\circ\text{E}$, 323 grid points)
-2. **Central India** (Synoptic Domain: $20.0^\circ\text{N} - 24.5^\circ\text{N},\ 76.0^\circ\text{E} - 82.0^\circ\text{E}$, 323 grid points)
-3. **Northwest India** (Synoptic Domain: $28.0^\circ\text{N} - 32.5^\circ\text{N},\ 74.0^\circ\text{E} - 80.0^\circ\text{E}$, 323 grid points)
-
-> **Scope Clarification**: The current prototype contains reliability data only for these three domains. It does not provide pan-India operational coverage.
+1. **Uncertainty at Longer Lead Times (D1–D10)**: Raw forecast accuracy deteriorates non-linearly across lead times. Decision-makers often lack objective guidance on whether Day 5 or Day 7 predictions remain actionable.
+2. **False Confidence in Ensemble Mean**: A narrow ensemble spread does not guarantee forecast success when all ensemble members share structural model deficiencies in complex topography or monsoon troughs.
+3. **Black-Box AI Blind Spots**: Applying standard deep learning or regression to weather forecasts can generate uncalibrated probabilities that fail without explanation during out-of-distribution (OOD) synoptic conditions.
+4. **Lack of Multi-Sector Decision Support**: Field operators (dam engineers, agronomists, disaster managers, grid dispatchers) require interpretable risk indices, not raw gigabytes of GRIB2 ensemble grids.
 
 ---
 
-## Data Sources
+## 3. Proposed Solution & Key Differentiators
 
-* **Forecast Source — NOAA GEFSv12 Reforecast**:
-  Retrospective ensemble reforecasts initialized at 00Z. Features are derived from 5 ensemble members:
-  - `c00` (Control member)
-  - `p01`, `p02`, `p03`, `p04` (Perturbed ensemble members)
-  - Atmospheric predictors: 2m Temperature (`tmp_2m`), Specific Humidity (`spfh_2m`), Mean Sea Level Pressure (`pres_msl`), Precipitable Water (`pwat_eatm`), 10m Wind components (`u10_10m`, `v10_10m`), and Total Precipitation (`apcp_sfc`).
-* **Reference Observation — ERA5 Reanalysis**:
-  Copernicus Climate Change Service / ECMWF ERA5 reanalysis daily precipitation archive.
-  *Note*: ERA5 is used as an objective reanalysis reference for validation and retrospective labeling; it is not described as perfect physical ground truth.
+Rather than generating an alternative weather forecast, FORTRESS introduces a decoupled **meta-forecasting and self-audit architecture**:
 
----
-
-## Model Architecture
-
-* **Bust Risk AI**:
-  - Classifier: **Random Forest** (ensemble of 100 decision trees)
-  - Post-Processing: **Isotonic Calibration** for empirical probability calibration
-* **Out-of-Distribution (OOD) / Novelty Detector**:
-  - Algorithm: **IsolationForest** trained on baseline feature spaces to identify out-of-distribution synoptic states.
-* **Stress Diagnostic**:
-  - **Forecast Failure Distance (FFD)**: Experimental diagnostic evaluating model sensitivity under controlled moisture, temperature, pressure, and wind perturbations.
+* **Estimates Forecast Trust, Not Weather**: Computes calibrated probability of severe forecast error ($P(\text{Bust})$).
+* **Decoupled Self-Audit Consensus**: Synthesizes primary AI predictions against four independent physical evidence streams to detect model blind spots.
+* **Deterministic Lead-Time Horizons**: Identifies the exact **Trust Horizon** (last actionable lead day) and **Breaking Point** (onset of severe unreliability).
+* **Physical Stress Testing (Stress Lab)**: Evaluates forecast fragility by injecting controlled synthetic moisture, thermal, barometric, and kinetic perturbations to measure **Forecast Failure Distance (FFD)**.
+* **Domain-Specific Decision Support**: Maps meteorological risk into human-in-the-loop operational advisories for reservoirs, agriculture, disaster relief, and wind energy.
 
 ---
 
-## 6D Failure Fingerprint
+## 4. Main Features & User Workflows
 
-Forecast vulnerabilities are mapped across exactly six normalized diagnostic axes:
-
-1. **Moisture**: Atmospheric moisture transport, precipitable water anomaly, and specific humidity.
-2. **Temperature**: 2m thermal gradient and regional deviations.
-3. **Pressure**: Mean sea level synoptic pressure anomalies and localized pressure tendencies.
-4. **Wind**: 10m zonal and meridional kinetic energy and shear.
-5. **Ensemble**: GEFS inter-member variance and spread-skill deficiency.
-6. **Novelty**: Statistical anomaly score relative to historical training distribution.
-
----
-
-## Independent Evidence
-
-The self-audit framework relies on four decoupled evidence components:
-
-1. **Historical Analogues**: Prior reforecast matching evaluating past bust frequencies under similar conditions.
-2. **Failure DNA**: Cosine similarity against an established database of historical forecast busts.
-3. **GEFS Ensemble Disagreement**: Direct ensemble dispersion metrics reflecting physical atmospheric chaos.
-4. **OOD / Novelty**: Unsupervised isolation forest flagging unrepresentative synoptic regimes.
+| Capability | Module / View | Operational Function |
+| :--- | :--- | :--- |
+| **Spatial Explorer** | `MapView.tsx` | Interactive 2D Leaflet GIS canvas visualizing $P(\text{Bust})$, Trust Index, FFD, and weather variables across 323 grid points per domain. |
+| **Lead Degradation Trajectory** | `TrustHorizonView.tsx` | D1–D10 sequence degradation curves with dynamic **Trust Horizon** and **Breaking Point** indicators. |
+| **Stress Testing Laboratory** | `StressLabView.tsx` | Interactive perturbation slider testing model vulnerability across moisture, temperature, pressure, and wind anomalies. |
+| **6D Failure Fingerprint** | `FailureIntelligenceView.tsx` | Radar diagnostic characterizing atmospheric failure vulnerability across six physical/ensemble dimensions. |
+| **Independent Evidence Audit** | `IndependentEvidenceView.tsx` | Four independent verification streams: Historical Analogues, Failure DNA, Ensemble Disagreement, and OOD Novelty. |
+| **Consensus Self-Audit** | `SelfAuditView.tsx` | Evaluator determining if AI signals are corroborated, conflicted, unrepresentative, or requiring expert review. |
+| **Reliability Passport** | `PassportView.tsx` | Standardized, exportable one-page diagnostic dossier summarizing audit metrics for operational sign-off. |
+| **Multi-Sector Decision Support** | `DecisionSupportView.tsx` | Specialized scenario simulations for Reservoirs/Dams, Agriculture, Disaster Preparedness, and Renewable Grid dispatch. |
+| **Multilingual AI Assistant** | `AIAssistantView.tsx` | Context-grounded conversational assistant explaining reliability findings in English, Hindi, and Hinglish. |
 
 ---
 
-## Self-Audit Statuses
+## 5. System Architecture
 
-The agreement between the primary AI signal and independent evidence streams results in five distinct self-audit statuses:
+```mermaid
+flowchart TD
+    subgraph Data_Layer ["Data & Numerical Input Layer"]
+        A["NOAA GEFSv12 Reforecasts<br/>(c00 control + p01-p04 members)"] --> C["Feature Extraction & Ingestion Engine"]
+        B["ECMWF ERA5 Reanalysis<br/>(Objective Verification Reference)"] --> C
+    end
 
-* `SUPPORTED RELIABILITY`: AI indicates low bust risk, corroborated by low ensemble spread and strong historical analogues.
-* `SUPPORTED WARNING`: AI flags elevated bust risk, verified by independent evidence (e.g., high ensemble divergence or high Failure DNA similarity).
-* `CONFLICT / POSSIBLE BLIND SPOT`: Disagreement between the AI prediction and independent physical evidence, highlighting potential model blind spots.
-* `INSUFFICIENT EVIDENCE`: Rare or data-sparse synoptic regime where analogue coverage is insufficient for conclusive validation.
-* `EXPERT REVIEW`: Borderline confidence scores or contradictory physical indicators requiring human meteorological review.
+    subgraph AI_Engine ["FORTRESS AI & Diagnostic Engine"]
+        C --> D["Feature Engineering Matrix<br/>(348,840 rows across 3 regions)"]
+        D --> E["Calibrated Random Forest Classifier<br/>(100 Trees + Isotonic Regression)"]
+        D --> F["Isolation Forest<br/>(OOD Synoptic Novelty)"]
+        D --> G["Stress Lab Simulation Engine<br/>(Perturbation Testing -> FFD)"]
+        D --> H["Historical Analogue & Failure DNA Engine<br/>(k-NN + Cosine Similarity)"]
+    end
 
----
+    subgraph Self_Audit ["Self-Audit Consensus Layer"]
+        E --> I["Primary AI Bust Signal: P(Bust)"]
+        F --> J["Independent Evidence Streams"]
+        G --> J
+        H --> J
+        I --> K{"Self-Audit Consensus Engine"}
+        J --> K
+        K --> L["Audit Verdict:<br/>Supported Reliability | Supported Warning<br/>Conflict / Blind Spot | Insufficient Evidence | Expert Review"]
+    end
 
-## Validation & Benchmarks
+    subgraph API_Layer ["FastAPI Service Layer (backend/app)"]
+        L --> M["FastAPI REST Endpoints<br/>(Port 8000)"]
+        M --> N["Schemas & Pydantic Serialization"]
+    end
 
-The multi-region model was evaluated across selected initialization samples spanning 2017–2019 (not a continuous full 3-year climatology) with chronologically separated training and testing splits:
-
-* **Total Dataset**: 348,840 forecast state rows
-* **Held-out Test Sample**: 116,280 rows (evaluated on unseen initialization dates across all three prototype regions)
-* **Model Evaluation Metrics on Held-out Test Data**:
-
-| Metric | Raw Uncalibrated Model | Calibrated Model (Isotonic) |
-| :--- | :---: | :---: |
-| **ROC-AUC** | 0.8567 | 0.8561 |
-| **PR-AUC** | 0.6408 | 0.6408 |
-| **Brier Score** | 0.1173 | 0.1178 |
-
-*Note on Calibration*: Isotonic calibration aligns predicted probabilities with observed empirical frequencies for probability reliability and interpretability; it does not claim to arbitrarily minimize Brier score over raw uncalibrated predictions.
-
----
-
-## Tech Stack
-
-* **Frontend**:
-  - React 18
-  - TypeScript
-  - Vite
-  - Leaflet & React-Leaflet
-  - Recharts
-  - Lucide React
-  - Tailwind CSS
-* **Backend**:
-  - FastAPI
-  - Python 3.11
-  - Uvicorn
-* **AI & Scientific Data Processing**:
-  - scikit-learn (RandomForestClassifier, IsotonicRegression, IsolationForest)
-  - Pandas
-  - NumPy
-  - PyArrow (Parquet)
+    subgraph Frontend_Layer ["Investigator Dashboard (frontend/src)"]
+        M --> O["React 18 + Vite GIS Interface<br/>(Port 5173)"]
+        O --> P["GIS Spatial Explorer (Leaflet)"]
+        O --> Q["Lead Trajectory & Sequence Analysis"]
+        O --> R["Sector Decision Support Systems"]
+        O --> S["Reliability Passport Generation"]
+    end
+```
 
 ---
 
-## Project Structure
+## 6. End-to-End Data & ML Pipeline
+
+1. **Ingestion**: 5 ensemble members from NOAA GEFSv12 (`c00`, `p01`, `p02`, `p03`, `p04`) and ERA5 surface reference fields are processed for selected meteorological runs.
+2. **Feature Engineering**: Calculates ensemble mean, spread, member range, thermal gradients (`temp_2m_c`), moisture content (`specific_humidity_gkg`), barometric pressure (`mslp_hpa`), precipitable water (`pwat_mm`), and surface wind velocities (`u10`, `v10`, `wind_speed_mean_ms`).
+3. **Thresholded Bust Labeling**: A forecast state is marked as a *bust* ($Y=1$) when the absolute 24-hour precipitation error exceeds the lead-time-specific 95th historical percentile calculated strictly on the training partition.
+4. **Model Training & Calibration**:
+   - Base Model: Scikit-Learn `RandomForestClassifier` (100 estimators, max depth 10).
+   - Probability Calibration: Non-parametric `IsotonicRegression` fitted on the validation partition to map raw ensemble votes to empirical probabilities.
+5. **Decoupled Evidence Generation**:
+   - Novelty / OOD: `IsolationForest` scoring deviation from historical synoptic clusters.
+   - Analogue Matching: Top-5 nearest historical reforecast states evaluated for retrospective error rates.
+   - Failure DNA: Cosine distance against canonical meteorological bust profiles.
+6. **Stress Testing**: Perturbation grid ($r \in [0.0, 1.0]$) evaluating minimum atmospheric perturbation distance triggering forecast collapse (**FFD**).
+
+---
+
+## 7. Data Sources, Provenance & Supported Regions
+
+### Supported Meteorological Domains
+
+FORTRESS is validated on three prototype geographic domains:
+
+1. **Eastern Uttar Pradesh (`EASTERN_UP_RECT`)**:
+   - Coordinates: $24.5^\circ\text{N} - 28.5^\circ\text{N},\ 80.0^\circ\text{E} - 84.5^\circ\text{E}$
+   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points)
+   - Synoptic Focus: Indo-Gangetic monsoon trough, convective storms, flash flooding.
+2. **Central India (`CENTRAL_INDIA_RECT`)**:
+   - Coordinates: $20.0^\circ\text{N} - 24.5^\circ\text{N},\ 76.0^\circ\text{E} - 82.0^\circ\text{E}$
+   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points)
+   - Synoptic Focus: Rainfed agriculture, Narmada/Tapti river basin hydrology, monsoon depressions.
+3. **Northwest India (`NORTHWEST_INDIA_RECT`)**:
+   - Coordinates: $28.0^\circ\text{N} - 32.5^\circ\text{N},\ 74.0^\circ\text{E} - 80.0^\circ\text{E}$
+   - Grid Resolution: $0.25^\circ \times 0.25^\circ$ (323 discrete points)
+   - Synoptic Focus: Western Disturbances, canal irrigation networks, semi-arid wind generation.
+
+> **Scope Clarification**: The current prototype dataset covers these three defined regions across 36 selected initialization dates per region (2017–2019). It does not claim continuous pan-India coverage.
+
+### Numerical Data Provenance
+
+* **Ensemble Forecast**: NOAA Global Ensemble Forecast System version 12 (GEFSv12) Reforecast archive initialized at 00Z.
+* **Verification Reference**: ECMWF / Copernicus Climate Change Service ERA5 atmospheric reanalysis archive.
+  * *Important Scientific Distinction*: ERA5 serves as an objective reference reanalysis dataset for validation; it is not physical ground truth.
+
+---
+
+## 8. Methodology & Model Design
+
+### 6D Failure Fingerprint
+
+Forecast states are mapped onto six normalized dimensions ($0–100$ scale):
+
+1. **Moisture**: Specific humidity anomaly and precipitable water saturation index.
+2. **Temperature**: 2m surface thermal gradient and diurnal variance.
+3. **Pressure**: Mean sea level barometric anomaly relative to synoptic normals.
+4. **Wind**: 10m kinetic vector magnitude and atmospheric shear.
+5. **Ensemble Disagreement**: Inter-member spread across `c00`, `p01`–`p04`.
+6. **Novelty**: Mahalanobis/Isolation Forest score relative to the training distribution.
+
+### Self-Audit Consensus Framework
+
+| Verdict | Meaning | Recommended Operator Action |
+| :--- | :--- | :--- |
+| `SUPPORTED RELIABILITY` | Low bust risk confirmed by tight ensemble spread and benign historical analogues. | Proceed with standard operational thresholds. |
+| `SUPPORTED WARNING` | Elevated bust risk confirmed by independent physical divergence or high Failure DNA similarity. | Implement risk mitigations; review secondary forecasts. |
+| `CONFLICT / POSSIBLE BLIND SPOT` | AI predicts low risk, but independent evidence (e.g., OOD novelty or ensemble spread) is elevated. | Treat forecast with high skepticism; inspect local observations. |
+| `INSUFFICIENT EVIDENCE` | Atmospheric regime falls in data-sparse sector where analogues are scarce. | Re-evaluate with next 12Z/00Z NWP cycle. |
+| `EXPERT REVIEW` | Contradictory physical indicators or borderline risk scores. | Require senior meteorological review before dispatching advisories. |
+
+---
+
+## 9. Verified Evaluation Metrics & Reproduction
+
+Evaluated across strictly partitioned chronological splits:
+* **Train Set**: 2017 + Jan–Jun 2018 (197,676 rows)
+* **Validation Set**: Jul–Dec 2018 (34,884 rows)
+* **Held-out Test Set**: 2019 Unseen Initialization Dates (116,280 rows across all 3 regions)
+
+### Held-Out Test Set Results (2019)
+
+| Evaluation Metric | Raw Uncalibrated Model | Calibrated Model (Isotonic) | Verified Benchmark |
+| :--- | :---: | :---: | :---: |
+| **ROC-AUC** | 0.8567 | **0.8561** | $\ge 0.85$ |
+| **PR-AUC** | 0.6408 | **0.6408** | $\ge 0.60$ |
+| **Brier Score** | 0.1173 | **0.1178** | $\le 0.15$ |
+| **Fixed Threshold Recall (0.50)** | 0.5310 | **0.6077** | $+7.67\%$ gain |
+| **Fixed Threshold F1 Score (0.50)** | 0.5893 | **0.6182** | $+2.89\%$ gain |
+
+*Scientific Note on Calibration*: Isotonic calibration maps predicted scores into empirical probability space for interpretability; it does not claim to arbitrarily lower raw Brier score over uncalibrated probabilities.
+
+---
+
+## 10. Reliability Outputs & Definitions
+
+* **$P(\text{Bust})$**: Calibrated probability ($0.0 - 1.0$) of 24h precipitation error exceeding the lead-specific 95th historical percentile.
+* **Reliability Bands**:
+  * `GREEN` (Reliable): $P(\text{Bust}) < 0.30$.
+  * `YELLOW` (Caution / Watch): $0.30 \le P(\text{Bust}) < 0.60$.
+  * `RED` (High Bust Risk): $P(\text{Bust}) \ge 0.60$.
+* **Trust Horizon**: The highest lead day (D1–D10) up to which the forecast maintains acceptable reliability (`GREEN`/`YELLOW` status).
+* **Breaking Point**: The lead day where severe forecast degradation persists without recovery.
+* **Forecast Failure Distance (FFD)**: Normalized Euclidean distance ($0.0 - 1.0$) in standardized atmospheric perturbation space required to flip the forecast into a bust. Higher FFD indicates higher physical stability.
+
+---
+
+## 11. Installation & Environment Setup
+
+### Prerequisites
+
+* Python 3.10+ (Python 3.11 recommended)
+* Node.js 18+ (Node.js 20+ LTS recommended)
+* Git
+
+### Step 1: Clone Repository
+
+```bash
+git clone https://github.com/SiyaPahuja-ai/Burst-Forecast-System.git
+cd Burst-Forecast-System/FORTRESS
+```
+
+### Step 2: Python Environment Setup
+
+#### Windows (PowerShell / Conda):
+```powershell
+# Using Conda:
+conda create -n fortress python=3.11 -y
+conda activate fortress
+
+# Or using Python venv:
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Install requirements
+pip install -r requirements.txt
+```
+
+#### Linux / macOS:
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### Step 3: Frontend Setup
+
+```bash
+cd frontend
+npm ci
+cd ..
+```
+
+---
+
+## 12. Backend Startup Instructions
+
+Start the FastAPI backend from the `FORTRESS` project root:
+
+```bash
+# Windows / Linux / macOS
+python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
+```
+
+* **API Health Check**: `http://127.0.0.1:8000/api/health`
+* **Interactive OpenAPI Docs**: `http://127.0.0.1:8000/docs`
+* **Swagger Schema**: `http://127.0.0.1:8000/openapi.json`
+
+---
+
+## 13. Frontend Startup & Production Build
+
+### Development Mode
+
+```bash
+cd frontend
+npm run dev -- --host 127.0.0.1 --port 5173
+```
+
+Access the user interface at: **`http://127.0.0.1:5173`**
+
+### Production Build
+
+```bash
+cd frontend
+npm run build
+```
+
+Build outputs are compiled into `frontend/dist/`.
+
+---
+
+## 14. Configuration & Environment Variables
+
+Copy the provided `.env.example` to `.env`:
+
+```bash
+cp .env.example .env
+```
+
+Default configuration variables:
+
+```ini
+# Frontend API Connection URL
+VITE_API_URL=http://127.0.0.1:8000/api
+
+# Backend Server Host & Port
+HOST=127.0.0.1
+PORT=8000
+ENVIRONMENT=development
+```
+
+---
+
+## 15. Key API Endpoints & Contract Samples
+
+### 1. System Health
+* **`GET /api/health`**
+```json
+{
+  "status": "ok",
+  "project": "FORTRESS",
+  "data_loaded": true,
+  "available_forecast_runs": ["2019-07-15 00:00:00", "2019-08-05 00:00:00"]
+}
+```
+
+### 2. Spatial Grid Map Data
+* **`GET /api/map?forecast_init=2019-07-15%2000:00:00&lead_day=5&metric=bust_probability&region=Eastern_UP_Pilot`**
+```json
+{
+  "forecast_init": "2019-07-15 00:00:00",
+  "lead_day": 5,
+  "metric": "bust_probability",
+  "region": "Eastern_UP_Pilot",
+  "points": [
+    {
+      "latitude": 26.75,
+      "longitude": 83.37,
+      "value": 0.42,
+      "reliability_band": "YELLOW",
+      "self_audit_status": "SUPPORTED RELIABILITY"
+    }
+  ]
+}
+```
+
+### 3. Grid Point Detail & Diagnostics
+* **`GET /api/grid-detail?forecast_init=2019-07-15%2000:00:00&lead_day=5&latitude=26.75&longitude=83.37`**
+```json
+{
+  "latitude": 26.75,
+  "longitude": 83.37,
+  "baseline_p_bust": 0.42,
+  "trust_index": 68.5,
+  "reliability_band": "YELLOW",
+  "ffd": 0.62,
+  "trust_horizon_day": 5,
+  "breaking_point_day": 7,
+  "self_audit_status": "SUPPORTED RELIABILITY"
+}
+```
+
+### 4. Stress Laboratory Analysis
+* **`GET /api/stress-test?forecast_init=2019-07-15%2000:00:00&lead_day=5&latitude=26.75&longitude=83.37`**
+```json
+{
+  "ffd": 0.62,
+  "ffd_failure_found": true,
+  "fragility_auc": 0.38,
+  "fragility_category": "MODERATE",
+  "min_bust_delta_humidity": 1.45,
+  "min_bust_delta_temp": 1.20,
+  "min_bust_delta_mslp": -2.50,
+  "min_bust_delta_wind": 3.10
+}
+```
+
+### 5. Multilingual Explanation Assistant
+* **`POST /api/assistant/explain`**
+  * Payload:
+  ```json
+  {
+    "message": "D5 forecast me risk kyu badh gaya hai?",
+    "language": "auto",
+    "forecast_init": "2019-07-15 00:00:00",
+    "lead_day": 5,
+    "latitude": 26.75,
+    "longitude": 83.37
+  }
+  ```
+  * Response:
+  ```json
+  {
+    "answer": "D5 par bust risk 42% hai (YELLOW Band). Primary reason ensemble disagreement me badhotri aur moisture anomaly sensitivity hai.",
+    "detected_language": "hinglish",
+    "intent": "BUST_RISK"
+  }
+  ```
+
+---
+
+## 16. Verification, Testing & Quality Assurance
+
+Run the complete verification test suite:
+
+### 1. Backend Unit Tests (38 Tests)
+```bash
+python -m unittest discover tests
+```
+*Expected Result*: `Ran 38 tests ... OK`
+
+### 2. Master Release Scientific Invariant Validator (30 Checks)
+```bash
+python scripts/validate_phase12_final.py
+```
+*Expected Result*: `SUMMARY: 30 PASSED, 0 FAILED — ALL 30 CHECKS PASSED SUCCESSFULLY!`
+
+### 3. Frontend Typecheck & Production Build
+```bash
+cd frontend
+npm run build
+```
+*Expected Result*: `✓ built in ~7-10s with 0 errors`
+
+---
+
+## 17. Repository Structure
 
 ```
 FORTRESS/
@@ -214,115 +482,51 @@ FORTRESS/
 
 ---
 
-## Setup & Execution
+## 18. Example Workflows & Scientific Figures
 
-### 1. Environment Setup
+Pre-computed evaluation figures and diagnostic distributions are archived in `docs/figures/`:
 
-Clone the repository and create a Python virtual environment:
-
-```bash
-git clone https://github.com/Cyber-Greecks/Burst-Forecast-System.git
-cd Burst-Forecast-System/FORTRESS
-
-# Activate conda or venv
-conda activate fortress
-# or: python -m venv .venv && source .venv/bin/activate (on Windows: .venv\Scripts\activate)
-
-# Install Python dependencies
-pip install -r requirements.txt
-```
-
-### 2. Backend Service
-
-Start the FastAPI application:
-
-```bash
-python -m uvicorn backend.app.main:app --host 127.0.0.1 --port 8000 --reload
-```
-
-The API documentation is accessible at `http://127.0.0.1:8000/docs`.
-
-### 3. Frontend Application
-
-Install Node packages and run the Vite development server:
-
-```bash
-cd frontend
-npm install
-npm run dev
-```
-
-The user interface will be live at `http://127.0.0.1:3000`.
-
-### 4. Running Verification Tests
-
-Run the backend unit test suite:
-
-```bash
-python -m unittest discover tests
-```
-
-Run frontend TypeScript compilation and production build verification:
-
-```bash
-cd frontend
-npm run build
-```
+| Visual Asset | Description |
+| :--- | :--- |
+| `docs/figures/calibration_curves.png` | Empirical reliability calibration curves demonstrating calibrated probability alignment. |
+| `docs/figures/breaking_point_distribution.png` | Lead-time breaking point frequency distribution across tested initialization cases. |
+| `docs/figures/leadwise_roc_prevalence.png` | ROC-AUC discrimination and event prevalence across lead times D1 through D10. |
+| `docs/figures/region_metric_comparison.png` | Side-by-side metric comparison across Eastern UP, Central India, and Northwest India. |
+| `docs/figures/failure_taxonomy_chart.png` | Diagnostic classification of failure clusters in the historical database. |
+| `docs/figures/trust_horizon_by_region.png` | Regional distribution of actionable trust horizons. |
 
 ---
 
-## Environment Variables
+## 19. Limitations, Assumptions & Future Work
 
-Configuration options can be supplied via a `.env` file based on `.env.example`:
+### Limitations & Assumptions
 
-```ini
-# API Client URL (used by Vite frontend)
-VITE_API_URL=http://127.0.0.1:8000/api
+* **Prototype Geospatial Scope**: Calibrated exclusively for 3 geographic domains ($323$ points each); pan-India spatial inference requires additional domain datasets.
+* **Initialization Sample**: Evaluated across 36 selected initialization dates per region (2017–2019); not a continuous 3-year multi-decadal climatology.
+* **Reference Data**: ERA5 daily precipitation reanalysis serves as verification reference and retrospective labeling source; reanalysis carries intrinsic observation uncertainties.
+* **Solar Irradiance Diagnostic**: Solar irradiance forecasting is not implemented in the current prototype; renewable energy decision support is restricted to 10m surface wind reliability.
 
-# Backend Server Host & Port
-HOST=127.0.0.1
-PORT=8000
-ENVIRONMENT=development
-```
+### Future Work
 
----
-
-## Decision Support Modules
-
-FORTRESS provides operational risk interpretation across four key sectors:
-
-1. **Reservoir & Dam Management**: Monitored pre-release advisories and inflow uncertainty assessments.
-2. **Agriculture & Farmers**: Sowing and harvesting vulnerability windows based on rainfall reliability.
-3. **Disaster Preparedness**: Pre-positioning warnings and lead-time alert reliability for state relief agencies.
-4. **Renewable Energy Grid**: Surface wind speed reliability and grid stability decision-support indices (Note: direct solar irradiance forecasting is not integrated in the prototype).
-
-> **Operational Guardrail**: All advisories are for decision-support and risk context only. FORTRESS does not issue official weather warnings and does not perform automatic operational control or physical actuation.
+1. Integration of satellite radar precipitation observations (INSAT-3D/3DR, IMERG) for live real-time observation updates.
+2. Expansion of spatial domains to coastal South India and the Northeast Himalayan foothills.
+3. Graph Neural Network (GNN) spatial topological message passing across upstream hydrological catchments.
 
 ---
 
-## Research & Data References
+## 20. Responsible-Use Disclaimer & Citations
 
-1. **NOAA GEFSv12 Reforecast**:
-   Hamill, T. M., et al. (2022). *The Version 12 Global Ensemble Forecast System (GEFSv12) Reforecast Dataset*. Monthly Weather Review. [NOAA Open Data Portal](https://registry.opendata.aws/noaa-gefs-retrospective/)
-2. **ERA5 Reanalysis**:
-   Hersbach, H., et al. (2020). *The ERA5 global reanalysis*. Quarterly Journal of the Royal Meteorological Society. [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/)
-3. **Forecast Verification & Calibration**:
-   Gneiting, T., & Raftery, A. E. (2007). *Strictly proper scoring rules, prediction, and estimation*. Journal of the American Statistical Association.
-4. **Isotonic Probability Calibration**:
-   Zadrozny, B., & Elkan, C. (2002). *Transforming classifier scores into accurate multiclass probability estimates*. KDD.
+### Operational Safety Disclaimer
 
----
+> **FORTRESS is a research prototype developed for forecast reliability analysis, stress-testing, and decision-support modeling. It does not issue official meteorological warnings or replace the statutory authority of official forecasting agencies (e.g., IMD / NCMRWF). All decision-support outputs are intended strictly for human-in-the-loop expert review and advisory context. FORTRESS performs no automated physical control or actuation.**
 
-## Visualizations & Documentation
+### References & Data Citations
 
-Scientific evaluation figures and calibration curves are located in `docs/figures/`:
-* `docs/figures/calibration_curves.png`: Reliability calibration curves across raw and calibrated probabilities.
-* `docs/figures/breaking_point_distribution.png`: Frequency distribution of lead-time breaking points.
-* `docs/figures/leadwise_roc_prevalence.png`: ROC-AUC performance and event prevalence across lead days D1–D10.
-* `docs/figures/region_metric_comparison.png`: Metric breakdown across the three prototype domains.
-
----
-
-## Disclaimer
-
-**FORTRESS is a research prototype developed for forecast reliability analysis, stress-testing, and decision-support modeling. It does not issue official meteorological warnings or replace the statutory authority of official forecasting bodies (such as IMD/NCMRWF) or professional meteorological/hydrological expert judgment.**
+1. **NOAA GEFSv12 Reforecast**:  
+   Hamill, T. M., et al. (2022). *The Version 12 Global Ensemble Forecast System (GEFSv12) Reforecast Dataset*. Monthly Weather Review, 150(4), 857-876. [NOAA AWS Registry](https://registry.opendata.aws/noaa-gefs-retrospective/)
+2. **ERA5 Reanalysis**:  
+   Hersbach, H., et al. (2020). *The ERA5 global reanalysis*. Quarterly Journal of the Royal Meteorological Society, 146(730), 1999-2049. [Copernicus Climate Data Store](https://cds.climate.copernicus.eu/)
+3. **Probability Calibration**:  
+   Zadrozny, B., & Elkan, C. (2002). *Transforming classifier scores into accurate multiclass probability estimates*. KDD '02.
+4. **Scoring Rules**:  
+   Gneiting, T., & Raftery, A. E. (2007). *Strictly proper scoring rules, prediction, and estimation*. JASA, 102(477), 359-378.
